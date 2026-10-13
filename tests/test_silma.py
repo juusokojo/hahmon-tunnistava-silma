@@ -109,3 +109,20 @@ def test_servo_mapping_clamps():
 def test_detector_runs_on_empty_frame():
     det = FaceDetector(DetectorConfig())
     assert det.detect(np.zeros((480, 640, 3), np.uint8)) == []
+
+
+def test_camera_choice_parsing():
+    from silma.camera_select import parse_choice
+
+    assert parse_choice("", [0, 1, 2], 1) == 1
+    assert parse_choice(" 2 ", [0, 1, 2], 0) == 2
+    assert parse_choice("5", [0, 1, 2], 0) is None
+    assert parse_choice("abc", [0, 1, 2], 0) is None
+
+
+def test_macos_camera_names_parsing():
+    from silma.camera_select import parse_macos_camera_names
+
+    text = '{"SPCameraDataType": [{"_name": "FaceTime HD Camera"}, {"_name": "Logitech BRIO"}]}'
+    assert parse_macos_camera_names(text) == {0: "FaceTime HD Camera", 1: "Logitech BRIO"}
+    assert parse_macos_camera_names("not json") == {}

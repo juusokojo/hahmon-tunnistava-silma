@@ -13,10 +13,15 @@ python3 -m venv .venv && . .venv/bin/activate
 pip install -r requirements-dev.txt
 
 python -m silma --demo      # synteettinen kohde, ei kameraa
-python -m silma             # web-kamera 0
+python -m silma             # listaa kamerat ja kysyy, mitä käytetään
+python -m silma --camera 1  # kamera 1 suoraan, ilman valikkoa
 python -m silma --video tiedosto.mp4 --headless --record tulos.mp4
 pytest
 ```
+
+Kameravalikko muistaa edellisen valinnan (Enter valitsee sen). macOS ei
+kerro, mikä kameranimi vastaa mitäkin numeroa, joten nimet näytetään
+erikseen vihjeenä; oikea kamera näkyy varmimmin simulaattori-ikkunasta.
 
 Simulaattori-ikkunassa: `a/d/w/s` kiertää katselukulmaa, `r` palauttaa,
 `b` räpäyttää, `q` lopettaa.

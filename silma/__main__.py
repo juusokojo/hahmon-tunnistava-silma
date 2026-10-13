@@ -1,4 +1,6 @@
-"""Käynnistys: python -m silma [--video tiedosto | --demo] [--record out.mp4]
+"""Käynnistys: python -m silma [--camera N | --video tiedosto | --demo] [--record out.mp4]
+
+Ilman --camera-valintaa ohjelma listaa kamerat ja kysyy, mitä käytetään.
 
 Näppäimet simulaattori-ikkunassa:
   a/d, w/s  kierrä katselukulmaa     r  palauta näkymä
@@ -41,7 +43,7 @@ def _overlay(img, lines):
 
 def main():
     ap = argparse.ArgumentParser(description="Kasvoja seuraava silmä – simulaattori")
-    ap.add_argument("--camera", type=int, default=0, help="kameran indeksi")
+    ap.add_argument("--camera", type=int, help="kameran numero (ohittaa valintavalikon)")
     ap.add_argument("--video", help="videotiedosto kameran sijaan")
     ap.add_argument("--demo", action="store_true", help="synteettinen kohde, ei kameraa")
     ap.add_argument("--mirrored", action="store_true", help="kamerakuva on peilattu")
@@ -53,7 +55,12 @@ def main():
     args = ap.parse_args()
 
     cfg = EyeConfig()
-    cfg.camera.index = args.camera
+    if args.camera is not None:
+        cfg.camera.index = args.camera
+    elif not (args.demo or args.video):
+        from .camera_select import choose_camera
+
+        cfg.camera.index = choose_camera()
     cfg.camera.mirrored = args.mirrored
     controller = EyeController(cfg)
     renderer = EyeRenderer(args.size)
