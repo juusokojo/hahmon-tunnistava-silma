@@ -5,6 +5,8 @@ kohdekulman (tai None, jos kasvoja ei näy) ja aika-askeleen, ja tuottaa
 EyeState-tilan, jonka simulaattori tai servo-ohjain toteuttaa.
 """
 
+from __future__ import annotations
+
 import random
 from dataclasses import dataclass
 from math import degrees, exp, hypot, log

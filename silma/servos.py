@@ -6,6 +6,8 @@ mitattava, kun osat on tulostettu. Oletus: PCA9685-servo-ohjain I2C:llä
 (`pip install adafruit-circuitpython-servokit`).
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from math import degrees
 

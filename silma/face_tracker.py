@@ -1,5 +1,7 @@
 """Kasvojen tunnistus OpenCV:n YuNet-mallilla ja kohdepisteen 3D-arvio."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from math import atan2, hypot, tan, radians
 
