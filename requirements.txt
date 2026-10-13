@@ -1,0 +1,3 @@
+numpy>=1.24
+# Työpöydällä ikkunan kanssa. Palvelimella / ilman näyttöä: opencv-python-headless
+opencv-python>=4.8
