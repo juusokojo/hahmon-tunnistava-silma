@@ -189,3 +189,17 @@ def test_tracker_priority_facing_face_then_any_face_then_person():
     assert found.mode == MODE_PERSON
     assert found.point[1] < 50 + 380 * 0.2  # katse pään korkeudelle
     assert _tracker([], []).update(FRAME) is None
+
+
+def test_calibration_offsets_target_and_persists(tmp_path):
+    from silma.calibration import apply_calibration, load_calibration, save_calibration
+
+    offset = (radians(-5), radians(15))
+    assert apply_calibration(None, offset) is None
+    yaw, pitch = apply_calibration(offset, offset)  # kalibrointikohdassa -> suoraan eteen
+    assert yaw == pytest.approx(0) and pitch == pytest.approx(0)
+
+    f = tmp_path / "kal.json"
+    assert load_calibration(f) == (0.0, 0.0)  # ei tiedostoa -> ei kalibrointia
+    save_calibration(offset, f)
+    assert load_calibration(f) == pytest.approx(offset)

@@ -5,6 +5,8 @@ Ilman --camera-valintaa ohjelma listaa kamerat ja kysyy, mitä käytetään.
 Näppäimet simulaattori-ikkunassa:
   a/d, w/s  kierrä katselukulmaa     r  palauta näkymä
   b         räpäytä                   q / Esc  lopeta
+  c         kalibroi: "katso suoraan minuun tästä kohdasta"
+  x         poista kalibrointi
 """
 
 import argparse
@@ -15,6 +17,7 @@ import cv2
 import numpy as np
 
 from .behavior import EyeController
+from .calibration import apply_calibration, load_calibration, save_calibration
 from .config import EyeConfig
 from .renderer import EyeRenderer
 from .tracking import MODE_FACING, MODE_PERSON, Tracker
@@ -95,6 +98,12 @@ def main():
     writer = None
     view_yaw = view_pitch = 0.0
     sim_t = 0.0
+    # Kalibrointi koskee vain livekameraa (ei demoa eikä videotiedostoja).
+    live = not (synthetic or args.video)
+    calibration = load_calibration() if live else (0.0, 0.0)
+    raw_target = None
+    if live and not args.headless:
+        print("Vinkki: jos silmä katsoo ohitsesi, istu normaalisti, katso silmää ja paina c.")
     last = time.monotonic()
     fps = 0.0
 
@@ -126,6 +135,8 @@ def main():
                 _overlay(frame, [found.mode, f"etaisyys ~{tgt.position_m[2]:.1f} m"])
             cam_view = cv2.resize(frame, (int(frame.shape[1] * args.size / frame.shape[0]), args.size))
 
+        raw_target = target
+        target = apply_calibration(target, calibration)
         state = controller.update(target, dt)
         if servo_out:
             servo_out.apply(state)
@@ -136,6 +147,7 @@ def main():
                 f"yaw {np.degrees(state.yaw):+5.1f}  pitch {np.degrees(state.pitch):+5.1f}",
                 f"luomi {state.lid_open:.2f}  {'seuraa' if state.tracking else 'etsii'}",
             ]
+            + (["kalibroitu (x poistaa)"] if calibration != (0.0, 0.0) else [])
             + ([f"{fps:4.1f} fps"] if not fixed_dt else []),
         )
         out = np.hstack([cam_view, eye]) if cam_view is not None else eye
@@ -162,6 +174,12 @@ def main():
                 renderer.set_view(0, 0)
             elif key == ord("b"):
                 controller.blink.trigger()
+            elif key == ord("c") and raw_target is not None and live:
+                calibration = raw_target
+                save_calibration(calibration)
+            elif key == ord("x") and live:
+                calibration = (0.0, 0.0)
+                save_calibration(calibration)
 
         if args.seconds and sim_t >= args.seconds:
             break

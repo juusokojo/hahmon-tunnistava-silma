@@ -25,7 +25,14 @@ kerro, mikä kameranimi vastaa mitäkin numeroa, joten nimet näytetään
 erikseen vihjeenä; oikea kamera näkyy varmimmin simulaattori-ikkunasta.
 
 Simulaattori-ikkunassa: `a/d/w/s` kiertää katselukulmaa, `r` palauttaa,
-`b` räpäyttää, `q` lopettaa.
+`b` räpäyttää, `c` kalibroi, `x` poistaa kalibroinnin, `q` lopettaa.
+
+**Kalibrointi (`c`)**: ruudulla piirretty silmä näyttää katsovan sinua vain,
+kun pupilli on keskellä (Mona Lisa -ilmiö). Koska läppärin kamera on näytön
+yläreunassa ja kasvot yleensä kuvan yläosassa, fyysisesti oikea katse
+näyttää ruudulla menevän ohitsesi yläviistoon. Istu normaalisti, katso
+silmää ja paina `c`: kohta tallentuu nollakohdaksi ja muistetaan
+seuraavalla kerralla. Oikeassa 3D-lelussa ilmiötä ei ole.
 
 ## Rakenne
 
