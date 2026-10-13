@@ -15,6 +15,7 @@ pip install -r requirements-dev.txt
 python -m silma --demo      # synteettinen kohde, ei kameraa
 python -m silma             # listaa kamerat ja kysyy, mitä käytetään
 python -m silma --camera 1  # kamera 1 suoraan, ilman valikkoa
+python -m silma --no-person # vain kasvot, ei hahmontunnistusta
 python -m silma --video tiedosto.mp4 --headless --record tulos.mp4
 pytest
 ```
@@ -30,7 +31,10 @@ Simulaattori-ikkunassa: `a/d/w/s` kiertää katselukulmaa, `r` palauttaa,
 
 | Moduuli | Tehtävä |
 |---|---|
-| `silma/face_tracker.py` | Kasvojen tunnistus (YuNet), seurattavan henkilön valinta, kuvapiste → 3D-piste → silmän kulmat |
+| `silma/face_tracker.py` | Kasvojen tunnistus (YuNet), katsooko henkilö kameraan, kuvapiste → 3D-piste → silmän kulmat |
+| `silma/person_detector.py` | Ihmishahmojen tunnistus (NanoDet-Plus) |
+| `silma/tracking.py` | Kohteen valinta: kameraan katsovat kasvot → muut kasvot → hahmot |
+| `silma/camera_select.py` | Kameran valinta komentorivillä |
 | `silma/behavior.py` | Käyttäytyminen: sakkadit, hidas seuranta, mikrosakkadit, ympärille vilkuilu, räpäytykset |
 | `silma/renderer.py` | 3D-simulaattori (numpy-säteenseuranta, ei GPU-riippuvuuksia) |
 | `silma/servos.py` | Tila → servokulmat (PCA9685), **ei vielä testattu raudalla** |
@@ -39,6 +43,20 @@ Simulaattori-ikkunassa: `a/d/w/s` kiertää katselukulmaa, `r` palauttaa,
 Ohjainlogiikka (`behavior.py`) tuottaa saman `EyeState`-tilan sekä
 simulaattorille että servoille, joten simulaattorissa viritetty
 käyttäytyminen siirtyy sellaisenaan lelulle.
+
+### Kohteen valinta
+
+Silmä valitsee kohteen tässä järjestyksessä:
+
+1. **Kameraan katsovat kasvot** (vihreä laatikko). Katsominen päätellään
+   nenän paikasta silmien välissä.
+2. **Kasvot sivulta** (keltainen), esim. ohi kävelevä, joka ei katso.
+3. **Ihmishahmo** (oranssi), kun kasvoja ei löydy lainkaan, esim. kaukana
+   tai selin oleva. Silmä katsoo hahmon pään kohtaan.
+
+Silmä pysyy valitsemassaan henkilössä, eikä pompi ihmisten välillä, mutta
+selvästi lähemmäs tuleva henkilö vie huomion. Hahmontunnistus ajetaan vain,
+kun kasvoja ei näy, koska se on raskaampi.
 
 ### Kasvojentunnistus
 

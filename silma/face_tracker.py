@@ -17,6 +17,7 @@ class Face:
     eyes_mid: tuple  # silmien välinen piste (u, v), pikseleinä
     interocular_px: float
     score: float
+    nose: tuple | None = None
 
 
 @dataclass
@@ -60,21 +61,26 @@ class FaceDetector:
                     eyes_mid=tuple((re + le) / 2),
                     interocular_px=float(np.linalg.norm(re - le)),
                     score=float(r[14]),
+                    nose=tuple(r[8:10]),
                 )
             )
         return faces
 
 
-def select_face(faces: list, previous: Face | None) -> Face | None:
-    """Pysy samoissa kasvoissa, jos ne löytyvät läheltä; muuten valitse suurin."""
-    if not faces:
-        return None
-    if previous is not None:
-        px, py = previous.eyes_mid
-        nearest = min(faces, key=lambda f: hypot(f.eyes_mid[0] - px, f.eyes_mid[1] - py))
-        if hypot(nearest.eyes_mid[0] - px, nearest.eyes_mid[1] - py) < previous.box[2]:
-            return nearest
-    return max(faces, key=lambda f: f.box[2] * f.box[3])
+def facing_camera(face: Face, max_offset: float) -> bool:
+    """Katsooko henkilö kohti kameraa (eli lelua/näyttöä)?
+
+    Edestä katsottuna nenä on silmien puolivälissä. Kun pää kääntyy sivulle,
+    nenä siirtyy kuvassa sivuun suhteessa silmien väliin.
+    """
+    if face.nose is None:
+        return True
+    offset = abs(face.nose[0] - face.eyes_mid[0]) / max(face.interocular_px, 1.0)
+    return offset <= max_offset
+
+
+def focal_px(frame_width: int, cam: CameraConfig) -> float:
+    return (frame_width / 2) / tan(radians(cam.hfov_deg) / 2)
 
 
 def face_to_target(
@@ -88,10 +94,16 @@ def face_to_target(
     pikselietäisyydestä (pinhole-malli), ja piste siirretään silmän
     origoon. Tämä on karkea arvio (n. ±20 %), mutta parallaksikorjaukseen riittävä.
     """
-    w, h = frame_size
-    f = (w / 2) / tan(radians(cam.hfov_deg) / 2)
-    u, v = face.eyes_mid
+    f = focal_px(frame_size[0], cam)
     z = f * interocular_m / max(face.interocular_px, 1.0)
+    return point_to_target(face.eyes_mid, z, frame_size, cam)
+
+
+def point_to_target(point: tuple, z: float, frame_size: tuple, cam: CameraConfig) -> Target:
+    """Kuvapiste (u, v) ja etäisyys z -> piste lelun koordinaatistossa ja kulmat."""
+    w, h = frame_size
+    f = focal_px(w, cam)
+    u, v = point
     x_img = (u - w / 2) * z / f  # kameran oikealle
     y_img = -(v - h / 2) * z / f  # ylös
     # Kamera katsoo lelun kanssa samaan suuntaan: kameran oikea = lelun

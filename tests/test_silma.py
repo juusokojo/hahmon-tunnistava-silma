@@ -126,3 +126,66 @@ def test_macos_camera_names_parsing():
     text = '{"SPCameraDataType": [{"_name": "FaceTime HD Camera"}, {"_name": "Logitech BRIO"}]}'
     assert parse_macos_camera_names(text) == {0: "FaceTime HD Camera", 1: "Logitech BRIO"}
     assert parse_macos_camera_names("not json") == {}
+
+
+# --- Kohteen valinta: kasvot ensin, sitten hahmot ---------------------------
+
+from silma.face_tracker import facing_camera
+from silma.person_detector import Person
+from silma.tracking import MODE_FACE, MODE_FACING, MODE_PERSON, Detection, Tracker, person_distance, pick
+
+
+def test_facing_camera_uses_nose_position():
+    front = Face(box=(0, 0, 100, 100), eyes_mid=(50, 40), interocular_px=40, score=0.9, nose=(51, 55))
+    side = Face(box=(0, 0, 100, 100), eyes_mid=(50, 40), interocular_px=40, score=0.9, nose=(72, 55))
+    assert facing_camera(front, 0.3)
+    assert not facing_camera(side, 0.3)
+
+
+def _det(box):
+    return Detection(MODE_PERSON, box, (0, 0), None)
+
+
+def test_pick_sticks_to_current_target_but_much_closer_one_takes_over():
+    a, b = (100, 100, 50, 100), (400, 100, 60, 110)
+    assert pick([a, b], _det(a), lambda x: x) == a  # b vain vähän isompi
+    near = (400, 50, 150, 300)
+    assert pick([a, near], _det(a), lambda x: x) == near
+    assert pick([a, b], None, lambda x: x) == b  # ei edellistä -> suurin
+
+
+def test_person_distance_uses_height_or_width():
+    f = 500.0
+    full = person_distance((100, 50, 60, 340), (640, 480), f, 1.7, 0.5)
+    assert full == pytest.approx(f * 1.7 / 340)
+    cropped = person_distance((100, 0, 200, 480), (640, 480), f, 1.7, 0.5)
+    assert cropped == pytest.approx(f * 0.5 / 200)
+
+
+class _Fake:
+    def __init__(self, items):
+        self.items = items
+
+    def detect(self, frame):
+        return self.items
+
+
+def _tracker(faces, people):
+    t = Tracker(EyeConfig())
+    t.faces, t.people = _Fake(faces), _Fake(people)
+    return t
+
+
+FRAME = np.zeros((480, 640, 3), np.uint8)
+FACING = Face(box=(100, 100, 80, 100), eyes_mid=(140, 140), interocular_px=30, score=0.9, nose=(141, 160))
+SIDE = Face(box=(400, 100, 120, 140), eyes_mid=(460, 140), interocular_px=40, score=0.9, nose=(480, 160))
+PERSON = Person(box=(300, 50, 100, 380), score=0.8)
+
+
+def test_tracker_priority_facing_face_then_any_face_then_person():
+    assert _tracker([SIDE, FACING], [PERSON]).update(FRAME).mode == MODE_FACING
+    assert _tracker([SIDE], [PERSON]).update(FRAME).mode == MODE_FACE
+    found = _tracker([], [PERSON]).update(FRAME)
+    assert found.mode == MODE_PERSON
+    assert found.point[1] < 50 + 380 * 0.2  # katse pään korkeudelle
+    assert _tracker([], []).update(FRAME) is None

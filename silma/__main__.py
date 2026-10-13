@@ -16,8 +16,8 @@ import numpy as np
 
 from .behavior import EyeController
 from .config import EyeConfig
-from .face_tracker import FaceDetector, face_to_target, select_face
 from .renderer import EyeRenderer
+from .tracking import MODE_FACING, MODE_PERSON, Tracker
 
 
 class SyntheticTarget:
@@ -51,6 +51,7 @@ def main():
     ap.add_argument("--record", help="tallenna video (mp4)")
     ap.add_argument("--seconds", type=float, default=0, help="lopeta N sekunnin jälkeen")
     ap.add_argument("--size", type=int, default=400, help="simulaattorikuvan koko")
+    ap.add_argument("--no-person", action="store_true", help="vain kasvontunnistus, ei hahmoja")
     ap.add_argument("--servos", action="store_true", help="ohjaa myös PCA9685-servoja")
     args = ap.parse_args()
 
@@ -62,6 +63,7 @@ def main():
 
         cfg.camera.index = choose_camera()
     cfg.camera.mirrored = args.mirrored
+    cfg.person.enabled = not args.no_person
     controller = EyeController(cfg)
     renderer = EyeRenderer(args.size)
     servo_out = None
@@ -70,7 +72,7 @@ def main():
 
         servo_out = ServoOutput()
 
-    cap = detector = synthetic = None
+    cap = tracker = synthetic = None
     if args.demo:
         synthetic = SyntheticTarget()
     else:
@@ -80,7 +82,7 @@ def main():
             cap.set(cv2.CAP_PROP_FRAME_HEIGHT, cfg.camera.height)
         if not cap.isOpened():
             raise SystemExit("Kameraa/videota ei saatu auki. Kokeile --demo.")
-        detector = FaceDetector(cfg.detector)
+        tracker = Tracker(cfg)
 
     # Videolla ja demossa käytetään tasaista aika-askelta, jotta tallenne
     # vastaa reaaliaikaa riippumatta laskentanopeudesta.
@@ -92,7 +94,6 @@ def main():
 
     writer = None
     view_yaw = view_pitch = 0.0
-    face = None
     sim_t = 0.0
     last = time.monotonic()
     fps = 0.0
@@ -112,16 +113,17 @@ def main():
             ok, frame = cap.read()
             if not ok:
                 break
-            face = select_face(detector.detect(frame), face)
+            found = tracker.update(frame)
             target = None
-            if face is not None:
-                h, w = frame.shape[:2]
-                tgt = face_to_target(face, (w, h), cfg.camera, cfg.detector.interocular_m)
+            if found is not None:
+                tgt = found.target
                 target = (tgt.yaw, tgt.pitch)
-                x, y, bw, bh = (int(v) for v in face.box)
-                cv2.rectangle(frame, (x, y), (x + bw, y + bh), (0, 255, 0), 2)
-                cv2.circle(frame, tuple(int(v) for v in face.eyes_mid), 4, (0, 0, 255), -1)
-                _overlay(frame, [f"etaisyys ~{tgt.position_m[2]:.2f} m"])
+                # Vihreä = katsoo kameraan, keltainen = kasvot sivulta, oranssi = hahmo.
+                color = {MODE_FACING: (0, 255, 0), MODE_PERSON: (0, 140, 255)}.get(found.mode, (0, 220, 255))
+                x, y, bw, bh = (int(v) for v in found.box)
+                cv2.rectangle(frame, (x, y), (x + bw, y + bh), color, 2)
+                cv2.circle(frame, tuple(int(v) for v in found.point), 4, (0, 0, 255), -1)
+                _overlay(frame, [found.mode, f"etaisyys ~{tgt.position_m[2]:.1f} m"])
             cam_view = cv2.resize(frame, (int(frame.shape[1] * args.size / frame.shape[0]), args.size))
 
         state = controller.update(target, dt)

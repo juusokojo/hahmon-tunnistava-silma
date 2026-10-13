@@ -38,6 +38,23 @@ class DetectorConfig:
     score_threshold: float = 0.7
     # Keskimääräinen silmien välinen etäisyys etäisyysarviota varten.
     interocular_m: float = 0.063
+    # Kasvot katsovat kameraan, jos nenä on enintään tämän verran (suhteessa
+    # silmien väliin) sivussa silmien keskikohdasta. Isompi = sallivampi.
+    facing_max_offset: float = 0.3
+
+
+@dataclass
+class PersonConfig:
+    """Hahmontunnistus: käytetään, kun kasvoja ei löydy."""
+
+    enabled: bool = True
+    model_path: Path = MODEL_DIR / "object_detection_nanodet_2022nov.onnx"
+    score_threshold: float = 0.5
+    # Etäisyysarviot: koko hahmo näkyy -> pituudesta, muuten leveydestä.
+    person_height_m: float = 1.7
+    person_width_m: float = 0.5
+    # Pään arvioitu kohta hahmolaatikon yläreunasta (osuus korkeudesta).
+    head_fraction: float = 0.1
 
 
 @dataclass
@@ -94,6 +111,7 @@ class LidConfig:
 class EyeConfig:
     camera: CameraConfig = field(default_factory=CameraConfig)
     detector: DetectorConfig = field(default_factory=DetectorConfig)
+    person: PersonConfig = field(default_factory=PersonConfig)
     gaze: GazeConfig = field(default_factory=GazeConfig)
     blink: BlinkConfig = field(default_factory=BlinkConfig)
     lids: LidConfig = field(default_factory=LidConfig)
